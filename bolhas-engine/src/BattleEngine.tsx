@@ -18,13 +18,11 @@ interface BattleBody extends Matter.Body {
   isCasting?: boolean;
   castEndTime?: number;
   savedVelocity?: { x: number, y: number };
-  // Propriedades Especiais dos Novos Personagens
-  isBlue?: boolean;         // Para o puxão do Gojo
   gojoBasicAttackType?: 'blue' | 'red';
   gojoProjectileType?: 'blue' | 'red';
-  isGearSecond?: boolean;   // Para o buff do Luffy
-  gearSecondEnd?: number;   // Tempo final do buff do Luffy
-  knockbackForce?: number;  // Força de empurrão (Luffy)
+  isGearSecond?: boolean;
+  gearSecondEnd?: number;
+  knockbackForce?: number;
 }
 
 const CHARACTERS = {
@@ -32,6 +30,14 @@ const CHARACTERS = {
   Naruto: { name: 'Naruto', image: '/naruto_hair.png' },
   Gojo: { name: 'Gojo', image: '/gojo_hair.png' },
   Luffy: { name: 'Luffy', image: '/luffy_hair.png' }
+};
+
+// ÍCONES DOS ESPECIAIS (O usuário deve adicionar as imagens na public folder)
+const SPECIAL_ICONS = {
+  Goku: '/kamehameha_icon.png',
+  Naruto: '/naruto_clone_icon.png',
+  Gojo: '/hollow_purple_icon.png',
+  Luffy: '/gear_second_icon.png'
 };
 
 // ==============================================================
@@ -84,9 +90,11 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
     Matter.Composite.add(engine.world, walls);
 
     const createCombatant = (x: number, y: number, team: 'red' | 'blue', name: string, hairUrl: string, isClone = false) => {
+      // CORREÇÃO 1: TODAS AS BOLINHAS AGORA SÃO DA COR DE PELE (#FFDAB9)
+      const skinTone = '#FFDAB9';
       const player = Matter.Bodies.circle(x, y, 25, {
         restitution: 1, friction: 0, frictionAir: 0,
-        render: { fillStyle: team === 'red' ? '#ff4757' : '#1e90ff', strokeStyle: isClone ? '#ffaa00' : '#ffffff', lineWidth: 3 },
+        render: { fillStyle: skinTone, strokeStyle: isClone ? '#ffaa00' : '#ffffff', lineWidth: 3 },
       }) as BattleBody;
 
       player.entityType = isClone ? 'clone' : 'player';
@@ -98,8 +106,9 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
       player.hairImageUrl = hairUrl;
       player.specialCharge = 0;
       player.isCasting = false;
-      if (name === 'Gojo') player.gojoBasicAttackType = 'blue';
       player.isGearSecond = false;
+
+      if (name === 'Gojo') player.gojoBasicAttackType = 'blue';
 
       Matter.Composite.add(engine.world, player);
       Matter.Body.setVelocity(player, { x: (Math.random() > 0.5 ? 1 : -1) * (isClone ? 8 : 6), y: (Math.random() > 0.5 ? 1 : -1) * (isClone ? 8 : 6), });
@@ -147,7 +156,6 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
       // LIXEIRO DE PROJÉTEIS
       allBodies.forEach(body => {
         if ((body.entityType === 'projectile' || body.entityType === 'hollow_purple') && body.createdAt) {
-          // Hollow Purple dura 5s, projéteis normais duram 2s
           const lifespan = body.entityType === 'hollow_purple' ? 5000 : 2000;
           if (now - body.createdAt > lifespan) Matter.Composite.remove(engine.world, body);
         }
@@ -155,7 +163,6 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
 
       const combatants = allBodies.filter(b => b.entityType === 'player' || b.entityType === 'clone');
 
-      // NOVA IA FÍSICA DOS TIROS DO GOJO (VOANDO)
       const gojoProjectiles = allBodies.filter(b => b.gojoProjectileType);
       gojoProjectiles.forEach(projObj => {
         combatants.forEach(target => {
@@ -163,17 +170,10 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
             const dx = projObj.position.x - target.position.x;
             const dy = projObj.position.y - target.position.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 180) { // Raio de efeito
+            if (dist < 180) {
               let forceMagnitude;
-
-              if (projObj.gojoProjectileType === 'blue') {
-                // AZUL: Força Gravitacional (Puxar)
-                forceMagnitude = -0.001;
-              } else {
-                // VERMELHO: Força de Repulsão (Empurrar)
-                forceMagnitude = 0.0015;
-              }
-
+              if (projObj.gojoProjectileType === 'blue') { forceMagnitude = -0.001; }
+              else { forceMagnitude = 0.0015; }
               Matter.Body.applyForce(target, target.position, {
                 x: (dx / dist) * forceMagnitude,
                 y: (dy / dist) * forceMagnitude
@@ -190,7 +190,6 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
           player.specialCharge = Math.min(100, (player.specialCharge || 0) + 0.08);
         }
 
-        // Fim do Gear Second do Luffy
         if (player.isGearSecond && player.gearSecondEnd && now > player.gearSecondEnd) {
           player.isGearSecond = false;
         }
@@ -202,8 +201,6 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
           } else {
             player.isCasting = false;
             if (player.savedVelocity) Matter.Body.setVelocity(player, player.savedVelocity);
-
-            // Lógica Pós-Cast do Gear Second (Luffy ganha impulso)
             if (player.isGearSecond && player.savedVelocity) {
               Matter.Body.setVelocity(player, { x: player.savedVelocity.x * 1.5, y: player.savedVelocity.y * 1.5 });
             }
@@ -242,7 +239,7 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
             const startY = player.position.y + Math.sin(baseAngle) * (beamLength / 2 + 30);
 
             const beam = Matter.Bodies.rectangle(startX, startY, beamLength, 90, {
-              angle: baseAngle, isSensor: true, render: { fillStyle: '#ff1e27' }
+              angle: baseAngle, isSensor: true, render: { fillStyle: '#1e80ff' }
             }) as BattleBody;
             beam.entityType = 'beam'; beam.team = player.team; beam.damage = 85; beam.createdAt = now;
             Matter.Composite.add(engine.world, beam);
@@ -268,84 +265,67 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
             const startX = player.position.x + Math.cos(baseAngle) * 60;
             const startY = player.position.y + Math.sin(baseAngle) * 60;
 
-            // MUDANÇA AQUI: Tiramos o 'restitution: 1' e colocamos 'isSensor: true'
-            // Assim ele vai reto e ignora a física de quique (mas ainda dá dano)
             const hollowPurple = Matter.Bodies.circle(startX, startY, 45, {
-              friction: 0, frictionAir: 0, isSensor: true, render: { fillStyle: '#9b59b6', strokeStyle: '#8e44ad', lineWidth: 4 }
+              restitution: 1, friction: 0, frictionAir: 0, render: { fillStyle: '#9b59b6', strokeStyle: '#8e44ad', lineWidth: 4 }
             }) as BattleBody;
-
-            hollowPurple.entityType = 'hollow_purple';
-            hollowPurple.team = player.team;
-            hollowPurple.damage = 40;
-            hollowPurple.createdAt = now;
+            hollowPurple.entityType = 'hollow_purple'; hollowPurple.team = player.team; hollowPurple.damage = 40; hollowPurple.createdAt = now;
 
             Matter.Body.setVelocity(hollowPurple, { x: Math.cos(baseAngle) * 10, y: Math.sin(baseAngle) * 10 });
             Matter.Composite.add(engine.world, hollowPurple);
             player.lastShot = now + 1000;
           }
           else if (player.animeName === 'Luffy') {
-            playSound('luffy_ult', 0.8); // Gear Second sound
+            playSound('luffy_ult', 0.8);
             player.isGearSecond = true;
-            player.gearSecondEnd = now + 6000; // Dura 6 segundos
-            createExplosion(player.position.x, player.position.y, '#ffffff', 6, 20); // Nuvem de vapor
+            player.gearSecondEnd = now + 6000;
+            createExplosion(player.position.x, player.position.y, '#ffffff', 6, 20);
           }
           return;
         }
 
         // --- ATAQUES BÁSICOS ---
-        // Cooldown dinâmico do Luffy
         const luffyCooldown = player.isGearSecond ? 300 : 1200;
 
-        if (player.animeName === 'Luffy' && now - player.lastShot! > luffyCooldown) { 
-          
-          const beamLength = 200; // Soco curto, não atravessa a arena
+        if (player.animeName === 'Luffy' && now - player.lastShot! > luffyCooldown) {
+          const beamLength = 200;
           const startX = player.position.x + Math.cos(baseAngle) * (beamLength / 2 + 25);
           const startY = player.position.y + Math.sin(baseAngle) * (beamLength / 2 + 25);
 
           const beam = Matter.Bodies.rectangle(startX, startY, beamLength, 18, {
-            angle: baseAngle, isSensor: true, render: { fillStyle: player.team === 'red' ? '#ff9f43' : '#48dbfb' }
+            angle: baseAngle, isSensor: true, render: { fillStyle: '#FFDAB9' }
           }) as BattleBody;
           beam.entityType = 'beam'; beam.team = player.team; beam.damage = 15; beam.createdAt = now;
-          beam.knockbackForce = 0.03; // Força de empurrão única do Luffy!
+          beam.knockbackForce = 0.03;
 
           Matter.Composite.add(engine.world, beam);
           player.lastShot = now;
 
           setTimeout(() => {
             if (Matter.Composite.allBodies(engine.world).includes(beam)) Matter.Composite.remove(engine.world, beam);
-          }, 150); // Some muito rápido!
+          }, 150);
         }
 
-        // --- ATAQUE BÁSICO DO GOJO (ALTERNA AZUL/VERMELHO) ---
         if (player.animeName === 'Gojo' && now - player.lastShot! > 1800) {
           const startX = player.position.x + Math.cos(baseAngle) * 35;
           const startY = player.position.y + Math.sin(baseAngle) * 35;
 
-          const currentAttack = player.gojoBasicAttackType!; // Pega o que está na fila
+          const currentAttack = player.gojoBasicAttackType!;
           const projectileStyle = currentAttack === 'blue'
-            ? { fillStyle: '#3498db', strokeStyle: '#ffffff' } // Estilo Azul
-            : { fillStyle: '#ff4d4d', strokeStyle: '#ffffff' }; // Estilo Vermelho
+            ? { fillStyle: '#3498db', strokeStyle: '#ffffff' }
+            : { fillStyle: '#ff4d4d', strokeStyle: '#ffffff' };
 
           const gojoObj = Matter.Bodies.circle(startX, startY, 12, {
             frictionAir: 0, render: { ...projectileStyle, lineWidth: 2 },
           }) as BattleBody;
 
-          gojoObj.entityType = 'projectile';
-          gojoObj.team = player.team;
-          gojoObj.damage = 18;
-          gojoObj.createdAt = now;
-
-          // Marca o tiro com o tipo correto para a IA física
+          gojoObj.entityType = 'projectile'; gojoObj.team = player.team; gojoObj.damage = 18; gojoObj.createdAt = now;
           gojoObj.gojoProjectileType = currentAttack;
 
-          // Alternar o tempo de recarga (Vermelho é mais rápido de carregar que Azul)
           const nextCooldownOffset = currentAttack === 'blue' ? 0 : 400;
 
-          // Lança o tiro
           Matter.Body.setVelocity(gojoObj, { x: Math.cos(baseAngle) * 8, y: Math.sin(baseAngle) * 8 });
           Matter.Composite.add(engine.world, gojoObj);
 
-          // MUDANÇA DE ESTADO: Alterna o próximo ataque que ficará na fila
           player.gojoBasicAttackType = currentAttack === 'blue' ? 'red' : 'blue';
           player.lastShot = now - nextCooldownOffset;
         }
@@ -409,15 +389,8 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
 
       event.pairs.forEach((pair) => {
         const handleHit = (bodyA: BattleBody, bodyB: BattleBody) => {
+          if ((bodyA.entityType === 'projectile' || bodyA.entityType === 'beam' || bodyA.entityType === 'hollow_purple') && (bodyB.entityType === 'player' || bodyB.entityType === 'clone') && bodyA.team !== bodyB.team) {
 
-          // NOVA REGRA: Se o Vazio Roxo bater numa parede (corpo estático), ele explode e some!
-          if (bodyA.entityType === 'hollow_purple' && bodyB.isStatic) {
-            createExplosion(bodyA.position.x, bodyA.position.y, '#9b59b6', 6, 30);
-            Matter.Composite.remove(engine.world, bodyA);
-            return; // Para a execução para ele não causar bugs
-          }
-          if ((bodyA.entityType === 'projectile' || bodyA.entityType === 'beam' || bodyA.entityType === 'hollow_purple') && (bodyB.entityType === 'player' || bodyB.entityType === 'clone') && bodyA.team !== bodyB.team) 
-            {
             playSound('hit', 0.6);
 
             const attacker = originalCombatants.find(p => p.team === bodyA.team);
@@ -428,15 +401,11 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
               else if (attacker.animeName === 'Gojo') attacker.specialCharge = Math.min(100, (attacker.specialCharge || 0) + 10);
             }
 
-            // Aplica Empurrão (Knockback do Luffy)
             if (bodyA.knockbackForce) {
               const dx = bodyB.position.x - bodyA.position.x;
               const dy = bodyB.position.y - bodyA.position.y;
               const angle = Math.atan2(dy, dx);
-              Matter.Body.applyForce(bodyB, bodyB.position, {
-                x: Math.cos(angle) * bodyA.knockbackForce,
-                y: Math.sin(angle) * bodyA.knockbackForce
-              });
+              Matter.Body.applyForce(bodyB, bodyB.position, { x: Math.cos(angle) * bodyA.knockbackForce, y: Math.sin(angle) * bodyA.knockbackForce });
             }
 
             bodyB.health! -= (bodyA.damage || 10);
@@ -445,8 +414,6 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
             if (bodyA.entityType === 'hollow_purple') { createExplosion(bodyB.position.x, bodyB.position.y, '#9b59b6', 5, 20); }
             else if (bodyA.damage! > 50) { createExplosion(bodyB.position.x, bodyB.position.y, '#ff1e27', 6, 25); }
             else { createExplosion(bodyB.position.x, bodyB.position.y, bodyA.team === 'blue' ? '#00ffff' : particleColor); }
-
-            // Shurikens somem, Hollow Purple e Feixes perfuram!
             if (bodyA.entityType === 'projectile') { Matter.Composite.remove(engine.world, bodyA); }
 
             if (bodyB.health! <= 0) {
@@ -460,73 +427,65 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
     });
 
     const imagesCache: { [key: string]: HTMLImageElement } = {};
-    const preLoadUrls = ['/naruto_hair.png', '/goku_hair.png', '/gojo_hair.png', '/luffy_hair.png', '/shuriken.png'];
+    const preLoadUrls = ['/naruto_hair.png', '/goku_hair.png', '/gojo_hair.png', '/luffy_hair.png', '/shuriken.png',
+      '/kamehameha_icon.png', '/naruto_clone_icon.png', '/hollow_purple_icon.png', '/gear_second_icon.png']; // CORREÇÃO 2: PRELOAD DOS ÍCONES
     preLoadUrls.forEach(url => {
       const img = new Image(); img.src = url; imagesCache[url] = img;
     });
 
-    // RENDERIZAÇÃO
+    // ==============================================================
+    // 5. NOVA RENDEREZACAO BLINDADA (Fila Única + HUDSTACK)
+    // ==============================================================
     Matter.Events.on(render, 'afterRender', () => {
       const context = render.context;
       const allBodies = Matter.Composite.allBodies(engine.world) as BattleBody[];
 
-      const canvas = render.canvas;
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
       const bounds = render.bounds;
       const viewWidth = bounds.max.x - bounds.min.x;
       const viewHeight = bounds.max.y - bounds.min.y;
-
-      const scaleX = canvasWidth / viewWidth;
-      const scaleY = canvasHeight / viewHeight;
+      const scaleX = width / viewWidth;
+      const scaleY = height / viewHeight;
 
       allBodies.forEach(body => {
         if (body.entityType === 'projectile' && body.damage === 12) {
           const shurikenImg = imagesCache['/shuriken.png'];
           if (shurikenImg) {
-            const baseSize = 26;
-            const screenX = (body.position.x - bounds.min.x) * scaleX;
-            const screenY = (body.position.y - bounds.min.y) * scaleY;
-            const currentSize = baseSize * scaleX;
-
-            context.save(); context.translate(screenX, screenY); context.rotate(Date.now() / 60);
-            context.drawImage(shurikenImg, -currentSize / 2, -currentSize / 2, currentSize, currentSize); context.restore();
+            const size = 26;
+            context.save(); context.translate(body.position.x, body.position.y); context.rotate(Date.now() / 60);
+            context.drawImage(shurikenImg, -size / 2, -size / 2, size, size); context.restore();
           }
         }
       });
+
+      // CORREÇÃO SUPREMA: Reseta a matriz para pixels da tela (Impedindo o lag de zoom)
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
 
       const combatants = allBodies.filter(b => b.entityType === 'player' || b.entityType === 'clone');
       combatants.forEach((player) => {
         if (player.health! <= 0) return;
 
+        // Conversão exata de coordenadas do mundo físico para pixels estáticos da tela
         const screenX = (player.position.x - bounds.min.x) * scaleX;
         const screenY = (player.position.y - bounds.min.y) * scaleY;
 
-        // Aura Kaioken do Goku
         if (player.animeName === 'Goku' && player.isCasting && player.specialCharge! === 0) {
-          const auraRadius = 35 * scaleX;
-          context.beginPath(); context.arc(screenX, screenY, auraRadius, 0, Math.PI * 2);
+          context.beginPath(); context.arc(screenX, screenY, 35 * scaleX, 0, Math.PI * 2);
           context.fillStyle = 'rgba(255, 30, 39, 0.4)'; context.fill(); context.closePath();
         }
 
-        // Aura Gear Second do Luffy (Fumaça)
         if (player.animeName === 'Luffy' && player.isGearSecond) {
-          const auraRadius = 35 * scaleX;
-          context.beginPath(); context.arc(screenX, screenY, auraRadius, 0, Math.PI * 2);
-          context.fillStyle = 'rgba(255, 255, 255, 0.3)'; // Fumaça branca
-          context.fill(); context.closePath();
+          context.beginPath(); context.arc(screenX, screenY, 35 * scaleX, 0, Math.PI * 2);
+          context.fillStyle = 'rgba(255, 255, 255, 0.3)'; context.fill(); context.closePath();
         }
 
         if (player.hairImageUrl && imagesCache[player.hairImageUrl]) {
           const img = imagesCache[player.hairImageUrl];
-          // Configurações de tamanho por personagem
-          let baseHairWidth = 90;
-          let baseHairHeight = 90;
-          let baseYOffset = -15;
+          let baseHairWidth = 90; let baseHairHeight = 90; let baseYOffset = -15;
 
           if (player.animeName === 'Goku') { baseHairWidth = 110; baseHairHeight = 110; baseYOffset = -35; }
-          if (player.animeName === 'Gojo') { baseHairWidth = 80; baseHairHeight = 80; baseYOffset = -20; }
-          if (player.animeName === 'Luffy') { baseHairWidth = 90; baseHairHeight = 90; baseYOffset = -25; }
+          if (player.animeName === 'Gojo') { baseHairWidth = 80; baseHairHeight = 80; baseYOffset = -25; }
+          if (player.animeName === 'Luffy') { baseHairWidth = 80; baseHairHeight = 80; baseYOffset = -25; }
 
           const currentHairWidth = baseHairWidth * scaleX;
           const currentHairHeight = baseHairHeight * scaleY;
@@ -536,29 +495,64 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
           context.drawImage(img, -currentHairWidth / 2, -currentHairHeight / 2 + currentYOffset, currentHairWidth, currentHairHeight); context.restore();
         }
 
-        context.font = `bold ${13 * scaleX}px Arial`; context.fillStyle = '#ffffff'; context.textAlign = 'center';
+        // --- NOVO HUD BLINDADO (Sem lag) ---
+        // Posições absolutas para travar o HUD
+        const hudBaseOffset = -150 * scaleY; // Sobe o HUD inteiro para evitar o cabelo
+        const hudTopY = screenY + hudBaseOffset;
+
+        // CORREÇÃO 3: ADICIONA O QUADRADO DE CARREGAMENTO DO ESPECIAL COM ÍCONE
+        const boxSize = 30 * scaleX; // Tamanho do quadrado escalado
+        const gap = 5 * scaleY;
+
+        // Lógica do Quadrado de Especial (Somente jogadores originais)
+        if (player.entityType === 'player') {
+          const iconX = screenX - boxSize / 2;
+          const iconY = hudTopY;
+
+          // 1. Fundo do Quadrado
+          context.fillStyle = '#222';
+          context.fillRect(iconX, iconY, boxSize, boxSize);
+
+          // 2. O Desenho do Especial
+          const iconKey = player.animeName as keyof typeof SPECIAL_ICONS;
+            const iconImg = imagesCache[SPECIAL_ICONS[iconKey]];
+            if (iconImg) {
+                context.drawImage(iconImg, iconX, iconY, boxSize, boxSize);
+            }
+
+          // 3. Barra de Carregamento Semi-transparente (Sobe dentro do quadrado)
+          const specialPercent = (player.specialCharge || 0) / 100;
+          const fillHeight = boxSize * specialPercent;
+          context.fillStyle = 'rgba(142, 68, 173, 0.6)'; // Mesma cor do especial, com alpha
+          context.fillRect(iconX, iconY + (boxSize - fillHeight), boxSize, fillHeight);
+
+          // 4. Borda do Quadrado
+          context.strokeStyle = '#000'; context.lineWidth = 1;
+          context.strokeRect(iconX, iconY, boxSize, boxSize);
+        }
+
+        // --- Resto do HUD (Nome e Barra de Vida) ---
+        // O HUDstack move o nome e a vida para baixo do quadrado de especial
+        context.font = 'bold 13px Arial'; context.fillStyle = '#ffffff'; context.textAlign = 'center'; context.textBaseline = 'top'; // Alinhamento top-down
         const displayName = player.entityType === 'clone' ? 'Clone' : player.animeName!;
-        const baseUiOffset = player.animeName === 'Goku' ? -60 : -50;
-        const currentUiOffset = baseUiOffset * scaleY;
-        context.fillText(displayName, screenX, screenY + currentUiOffset);
+
+        const nameY = player.entityType === 'clone'
+          ? screenY + (player.animeName === 'Goku' ? -60 : -50) * scaleY // Posição antiga para clones
+          : hudTopY + boxSize + gap; // Posição HUDstack para jogadores
+
+        context.fillText(displayName, screenX, nameY);
 
         const healthPercent = Math.max(0, player.health! / player.maxHealth!);
-        const baseBarWidth = 45; const baseBarHeight = 5;
-        const currentBarWidth = baseBarWidth * scaleX; const currentBarHeight = baseBarHeight * scaleY;
-        const barX = screenX - currentBarWidth / 2; const barY = screenY + currentUiOffset + (8 * scaleY);
+        const barWidth = 45; const barHeight = 5;
+        const barX = screenX - barWidth / 2;
+        const barY = player.entityType === 'clone' ? nameY + 8 : nameY + (13 * scaleX) + gap; // Stacking dinâmico
 
-        context.fillStyle = '#222'; context.fillRect(barX, barY, currentBarWidth, currentBarHeight);
+        context.fillStyle = '#222'; context.fillRect(barX, barY, barWidth, barHeight);
         context.fillStyle = player.entityType === 'clone' ? '#ffaa00' : (healthPercent > 0.4 ? '#2ecc71' : healthPercent > 0.2 ? '#f1c40f' : '#e74c3c');
-        context.fillRect(barX, barY, currentBarWidth * healthPercent, currentBarHeight); context.strokeStyle = '#000'; context.strokeRect(barX, barY, currentBarWidth, currentBarHeight);
-
-        if (player.entityType === 'player') {
-          const specialPercent = (player.specialCharge || 0) / 100;
-          const specBarY = barY + (7 * scaleY);
-          context.fillStyle = '#222'; context.fillRect(barX, specBarY, currentBarWidth, 4 * scaleY);
-          context.fillStyle = specialPercent >= 1 ? (Date.now() % 200 > 100 ? '#e0a8ff' : '#9b59b6') : '#8e44ad';
-          context.fillRect(barX, specBarY, currentBarWidth * specialPercent, 4 * scaleY); context.strokeStyle = '#000'; context.strokeRect(barX, specBarY, currentBarWidth, 4 * scaleY);
-        }
+        context.fillRect(barX, barY, barWidth * healthPercent, barHeight); context.strokeStyle = '#000'; context.strokeRect(barX, barY, barWidth, barHeight);
       });
+
+      context.restore(); // Devolve o controle nativo pro Matter.js
     });
 
     Matter.Render.run(render);
@@ -604,7 +598,7 @@ export default function BattleApp() {
 
       <div style={{ display: 'flex', gap: '50px', marginBottom: '40px' }}>
 
-        {/* PLAYER 1 (RED) */}
+        {/* TIME VERMELHO */}
         <div style={{ background: '#222', padding: '20px', borderRadius: '10px', border: '3px solid #ff4757', width: '250px', textAlign: 'center' }}>
           <h2 style={{ color: '#ff4757', margin: '0 0 15px 0' }}>Time Vermelho</h2>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -628,7 +622,7 @@ export default function BattleApp() {
           VS
         </div>
 
-        {/* PLAYER 2 (BLUE) */}
+        {/* TIME AZUL */}
         <div style={{ background: '#222', padding: '20px', borderRadius: '10px', border: '3px solid #1e90ff', width: '250px', textAlign: 'center' }}>
           <h2 style={{ color: '#1e90ff', margin: '0 0 15px 0' }}>Time Azul</h2>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
