@@ -89,8 +89,9 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
     ];
     Matter.Composite.add(engine.world, walls);
 
-    const createCombatant = (x: number, y: number, team: 'red' | 'blue', name: string, hairUrl: string, isClone = false) => {
+    const createCombatant = (x: number, y: number, team: 'red' | 'blue', name: string, hairUrl: string, isClone = false ) => {
       // CORREÇÃO 1: TODAS AS BOLINHAS AGORA SÃO DA COR DE PELE (#FFDAB9)
+      
       const skinTone = '#FFDAB9';
       const player = Matter.Bodies.circle(x, y, 25, {
         restitution: 1, friction: 0, frictionAir: 0,
@@ -305,7 +306,7 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
           }, 150);
         }
 
-        if (player.animeName === 'Gojo' && now - player.lastShot! > 1800) {
+        if (player.animeName === 'Gojo' && now - player.lastShot! > 1000) {
           const startX = player.position.x + Math.cos(baseAngle) * 35;
           const startY = player.position.y + Math.sin(baseAngle) * 35;
 
@@ -330,7 +331,7 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
           player.lastShot = now - nextCooldownOffset;
         }
 
-        if (player.animeName === 'Goku' && now - player.lastShot! > 2200) {
+        if (player.animeName === 'Goku' && now - player.lastShot! > 3000) {
           playSound('kamehameha', 0.4);
           player.isCasting = true; player.castEndTime = now + 400; player.savedVelocity = { x: player.velocity.x, y: player.velocity.y };
           Matter.Body.setVelocity(player, { x: 0, y: 0 });
@@ -523,7 +524,7 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
           // 3. Barra de Carregamento Semi-transparente (Sobe dentro do quadrado)
           const specialPercent = (player.specialCharge || 0) / 100;
           const fillHeight = boxSize * specialPercent;
-          context.fillStyle = 'rgba(142, 68, 173, 0.6)'; // Mesma cor do especial, com alpha
+          context.fillStyle = 'rgba(10, 139, 139, 0.75)'; // Mesma cor do especial, com alpha
           context.fillRect(iconX, iconY + (boxSize - fillHeight), boxSize, fillHeight);
 
           // 4. Borda do Quadrado
@@ -567,7 +568,7 @@ const Arena: React.FC<{ p1: string, p2: string, onBack: () => void }> = ({ p1, p
     <div style={{ position: 'relative', width: '600px', height: '600px' }}>
       <button
         onClick={onBack}
-        style={{ position: 'absolute', top: 10, left: 10, zIndex: 10, padding: '8px 12px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+        style={{ position: 'absolute', top: -100, left: -300, zIndex: 10, padding: '8px 12px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
       >
         ← Voltar
       </button>

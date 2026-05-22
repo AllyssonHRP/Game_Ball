@@ -12,9 +12,9 @@ function App() {
       margin: 0,
       padding: 0
     }}>
-      <h1 style={{ color: '#fff', fontFamily: 'sans-serif', marginBottom: '20px' }}>
-        Arena Matter.js
-      </h1>
+      <h1 style={{ color: '#fff', textShadow: '0 0 10px #ff1e27', fontSize: '2.5rem', marginBottom: '30px' }}>
+        Arena Battle Anime
+        </h1>
       
       {/* Aqui é onde a mágica acontece */}
       <BattleEngine />
